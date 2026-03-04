@@ -14,6 +14,7 @@ import { convertToPlainText } from "@/features/posts/utils/content";
 import { createMyDb } from "@/features/search/model/schema";
 import { PostsTable } from "@/lib/db/schema";
 import { buildSnippet, getMatchedTerms } from "@/features/search/search.utils";
+import { ok } from "@/lib/error";
 
 export const CONTENT_SLICE = 10000;
 export const SNIPPET_SLICE = 200;
@@ -92,7 +93,7 @@ export async function upsert(
   });
 
   await persistOramaDb(context.env, db);
-  return { id: data.id };
+  return ok({ id: data.id });
 }
 
 export async function deleteIndex(
@@ -102,7 +103,7 @@ export async function deleteIndex(
   const db = await getOramaDb(context.env);
   await remove(db, data.id.toString());
   await persistOramaDb(context.env, db);
-  return { id: data.id };
+  return ok({ id: data.id });
 }
 
 export async function rebuildIndex(context: DbContext) {
@@ -153,7 +154,7 @@ export async function rebuildIndex(context: DbContext) {
   const duration = Date.now() - start;
   console.log(`[search] Indexed ${posts.length} posts in ${duration}ms`);
 
-  return { indexed: posts.length, duration };
+  return ok({ indexed: posts.length, duration });
 }
 
 export async function getIndexVersion(context: DbContext) {

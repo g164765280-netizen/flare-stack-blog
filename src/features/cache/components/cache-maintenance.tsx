@@ -10,11 +10,29 @@ export function CacheMaintenance() {
 
   const handleInvalidate = () => {
     setIsModalOpen(false);
-    toast.promise(invalidateSiteCacheFn, {
-      loading: "正在重置全站缓存...",
-      success: "全站缓存重置成功",
-      error: "缓存重置失败",
-    });
+    toast.promise(
+      async () => {
+        const result = await invalidateSiteCacheFn();
+        if (result.error) {
+          const reason = result.error.reason;
+          switch (reason) {
+            case "UNAUTHENTICATED":
+              throw new Error("登录状态已失效，请重新登录");
+            case "PERMISSION_DENIED":
+              throw new Error("权限不足，仅管理员可操作");
+            default: {
+              reason satisfies never;
+              throw new Error("未知错误");
+            }
+          }
+        }
+      },
+      {
+        loading: "正在重置全站缓存...",
+        success: "全站缓存重置成功",
+        error: (error) => error.message || "缓存重置失败",
+      },
+    );
   };
   return (
     <div className="flex flex-col border border-border/30 bg-background overflow-hidden group hover:border-red-500/30 transition-colors">

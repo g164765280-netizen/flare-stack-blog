@@ -13,6 +13,7 @@ import * as DashboardRepo from "@/features/dashboard/data/dashboard.data";
 import * as MediaRepo from "@/features/media/data/media.data";
 import * as CacheService from "@/features/cache/cache.service";
 import { serverEnv } from "@/lib/env/server.env";
+import { ok } from "@/lib/error";
 
 // Schema for single range data
 const MetricSchema = z.object({
@@ -190,7 +191,7 @@ async function fetchUmamiDataForRange(
 
 export async function getDashboardStats(
   context: DbContext & { executionCtx: ExecutionContext },
-): Promise<DashboardResponse> {
+) {
   const { db } = context;
 
   const [
@@ -285,7 +286,7 @@ export async function getDashboardStats(
     })
     .slice(0, 10);
 
-  return {
+  return ok({
     stats: {
       pendingComments,
       publishedPosts,
@@ -295,5 +296,5 @@ export async function getDashboardStats(
     activities,
     trafficByRange,
     umamiUrl,
-  };
+  });
 }

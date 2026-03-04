@@ -72,13 +72,29 @@ function DashboardOverview() {
   useVersionCheck();
 
   const refreshDashboardCacheMutation = useMutation({
-    mutationFn: refreshDashboardCacheFn,
+    mutationFn: async () => {
+      const result = await refreshDashboardCacheFn();
+      if (result.error) {
+        const reason = result.error.reason;
+        switch (reason) {
+          case "UNAUTHENTICATED":
+            throw new Error("登录状态已失效，请重新登录");
+          case "PERMISSION_DENIED":
+            throw new Error("权限不足，仅管理员可操作");
+          default: {
+            reason satisfies never;
+            throw new Error("未知错误");
+          }
+        }
+      }
+      return result.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(dashboardStatsQuery);
       toast.success("数据已刷新");
     },
-    onError: () => {
-      toast.error("刷新失败，请重试");
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 
@@ -146,7 +162,7 @@ function DashboardOverview() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => refreshDashboardCacheMutation.mutate({})}
+                  onClick={() => refreshDashboardCacheMutation.mutate()}
                   disabled={isFetching}
                   className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 p-2 hover:bg-muted/30 rounded-sm"
                 >

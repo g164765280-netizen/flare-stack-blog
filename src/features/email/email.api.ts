@@ -1,24 +1,25 @@
 import { z } from "zod";
 import { createServerFn } from "@tanstack/react-start";
 import { EMAIL_UNSUBSCRIBE_TYPES } from "@/lib/db/schema";
-import {
-  adminMiddleware,
-  dbMiddleware,
-  sessionMiddleware,
-} from "@/lib/middlewares";
-import { testEmailConnection } from "@/features/email/email.service";
+import { dbMiddleware, hasSession, sessionMiddleware } from "@/lib/middlewares";
+import * as EmailService from "@/features/email/email.service";
 import { TestEmailConnectionSchema } from "@/features/email/email.schema";
-import * as EmailData from "@/features/email/data/email.data";
-import { verifyUnsubscribeToken } from "@/features/email/email.utils";
-import { serverEnv } from "@/lib/env/server.env";
-import { err, ok } from "@/lib/error";
+import { err } from "@/lib/error";
 
 export const testEmailConnectionFn = createServerFn({
   method: "POST",
 })
-  .middleware([adminMiddleware])
+  .middleware([sessionMiddleware])
   .inputValidator(TestEmailConnectionSchema)
-  .handler(({ context, data }) => testEmailConnection(context, data));
+  .handler(({ context, data }) => {
+    if (!hasSession(context)) {
+      return err({ reason: "UNAUTHENTICATED" });
+    }
+    if (context.session.user.role !== "admin") {
+      return err({ reason: "PERMISSION_DENIED" });
+    }
+    return EmailService.testEmailConnection(context, data);
+  });
 
 export const unsubscribeByTokenFn = createServerFn({
   method: "POST",
@@ -31,38 +32,23 @@ export const unsubscribeByTokenFn = createServerFn({
       token: z.string(),
     }),
   )
-  .handler(async ({ context, data }) => {
-    const { BETTER_AUTH_SECRET } = serverEnv(context.env);
-    const isValid = await verifyUnsubscribeToken(
-      BETTER_AUTH_SECRET,
-      data.userId,
-      data.type,
-      data.token,
-    );
-
-    if (!isValid) {
-      return err({ reason: "INVALID_OR_EXPIRED_TOKEN" });
-    }
-
-    await EmailData.unsubscribe(context.db, data.userId, data.type);
-    return ok({ success: true });
-  });
+  .handler(({ context, data }) =>
+    EmailService.unsubscribeByToken(context, data),
+  );
 
 export const getReplyNotificationStatusFn = createServerFn({
   method: "GET",
 })
   .middleware([sessionMiddleware])
-  .handler(async ({ context }) => {
-    if (!context.session) {
+  .handler(({ context }) => {
+    if (!hasSession(context)) {
       return err({ reason: "UNAUTHENTICATED" });
     }
 
-    const unsubscribed = await EmailData.isUnsubscribed(
-      context.db,
+    return EmailService.getReplyNotificationStatus(
+      context,
       context.session.user.id,
-      "reply_notification",
     );
-    return ok({ enabled: !unsubscribed });
   });
 
 export const toggleReplyNotificationFn = createServerFn({
@@ -70,23 +56,13 @@ export const toggleReplyNotificationFn = createServerFn({
 })
   .middleware([sessionMiddleware])
   .inputValidator(z.object({ enabled: z.boolean() }))
-  .handler(async ({ context, data }) => {
-    if (!context.session) {
+  .handler(({ context, data }) => {
+    if (!hasSession(context)) {
       return err({ reason: "UNAUTHENTICATED" });
     }
 
-    if (data.enabled) {
-      await EmailData.subscribe(
-        context.db,
-        context.session.user.id,
-        "reply_notification",
-      );
-    } else {
-      await EmailData.unsubscribe(
-        context.db,
-        context.session.user.id,
-        "reply_notification",
-      );
-    }
-    return ok({ success: true });
+    return EmailService.toggleReplyNotification(context, {
+      userId: context.session.user.id,
+      enabled: data.enabled,
+    });
   });

@@ -1,6 +1,11 @@
+import type { EmailUnsubscribeType } from "@/lib/db/schema";
 import type { TestEmailConnectionInput } from "@/features/email/email.schema";
+import * as EmailData from "@/features/email/data/email.data";
 import { getSystemConfig } from "@/features/config/config.data";
-import { createEmailClient } from "@/features/email/email.utils";
+import {
+  createEmailClient,
+  verifyUnsubscribeToken,
+} from "@/features/email/email.utils";
 import { err, ok } from "@/lib/error";
 import { isNotInProduction, serverEnv } from "@/lib/env/server.env";
 
@@ -29,6 +34,54 @@ export async function testEmailConnection(
     const errorMessage = error instanceof Error ? error.message : "未知错误";
     return err({ reason: "SEND_FAILED", message: errorMessage });
   }
+}
+
+export async function unsubscribeByToken(
+  context: DbContext,
+  data: {
+    userId: string;
+    type: EmailUnsubscribeType;
+    token: string;
+  },
+) {
+  const { BETTER_AUTH_SECRET } = serverEnv(context.env);
+  const isValid = await verifyUnsubscribeToken(
+    BETTER_AUTH_SECRET,
+    data.userId,
+    data.type,
+    data.token,
+  );
+
+  if (!isValid) {
+    return err({ reason: "INVALID_OR_EXPIRED_TOKEN" });
+  }
+
+  await EmailData.unsubscribe(context.db, data.userId, data.type);
+  return ok({ success: true });
+}
+
+export async function getReplyNotificationStatus(
+  context: DbContext,
+  userId: string,
+) {
+  const unsubscribed = await EmailData.isUnsubscribed(
+    context.db,
+    userId,
+    "reply_notification",
+  );
+  return ok({ enabled: !unsubscribed });
+}
+
+export async function toggleReplyNotification(
+  context: DbContext,
+  data: { userId: string; enabled: boolean },
+) {
+  if (data.enabled) {
+    await EmailData.subscribe(context.db, data.userId, "reply_notification");
+  } else {
+    await EmailData.unsubscribe(context.db, data.userId, "reply_notification");
+  }
+  return ok({ success: true });
 }
 
 export async function sendEmail(

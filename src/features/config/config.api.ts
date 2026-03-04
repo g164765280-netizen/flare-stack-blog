@@ -1,17 +1,34 @@
 import { createServerFn } from "@tanstack/react-start";
 import * as ConfigService from "@/features/config/config.service";
-import { adminMiddleware } from "@/lib/middlewares";
+import { err } from "@/lib/error";
+import { hasSession, sessionMiddleware } from "@/lib/middlewares";
 import { SystemConfigSchema } from "@/features/config/config.schema";
 
 export const getSystemConfigFn = createServerFn()
-  .middleware([adminMiddleware])
-  .handler(({ context }) => ConfigService.getSystemConfig(context));
+  .middleware([sessionMiddleware])
+  .handler(({ context }) => {
+    if (!hasSession(context)) {
+      return err({ reason: "UNAUTHENTICATED" });
+    }
+    if (context.session.user.role !== "admin") {
+      return err({ reason: "PERMISSION_DENIED" });
+    }
+
+    return ConfigService.getSystemConfig(context);
+  });
 
 export const updateSystemConfigFn = createServerFn({
   method: "POST",
 })
-  .middleware([adminMiddleware])
+  .middleware([sessionMiddleware])
   .inputValidator(SystemConfigSchema)
-  .handler(({ context, data }) =>
-    ConfigService.updateSystemConfig(context, data),
-  );
+  .handler(({ context, data }) => {
+    if (!hasSession(context)) {
+      return err({ reason: "UNAUTHENTICATED" });
+    }
+    if (context.session.user.role !== "admin") {
+      return err({ reason: "PERMISSION_DENIED" });
+    }
+
+    return ConfigService.updateSystemConfig(context, data);
+  });

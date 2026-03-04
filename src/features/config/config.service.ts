@@ -10,11 +10,13 @@ import {
 export async function getSystemConfig(
   context: DbContext & { executionCtx: ExecutionContext },
 ) {
-  return await CacheService.get(
-    context,
-    CONFIG_CACHE_KEYS.system,
-    SystemConfigSchema.nullable(),
-    async () => await ConfigRepo.getSystemConfig(context.db),
+  return ok(
+    await CacheService.get(
+      context,
+      CONFIG_CACHE_KEYS.system,
+      SystemConfigSchema.nullable(),
+      async () => await ConfigRepo.getSystemConfig(context.db),
+    ),
   );
 }
 
