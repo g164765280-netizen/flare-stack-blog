@@ -69,6 +69,10 @@ export default defineConfig((ctx) => {
         App: exports.worker({ cache: { enabled: true } }),
         RateLimiter: exports.durableObject({ storage: "sqlite" }),
         PostPublisher: exports.durableObject({ storage: "sqlite" }),
+        // Retire the PasswordHasher namespace provisioned by the old
+        // wrangler-based deployment (v0.11, 2026-03). v3.6 no longer ships the
+        // class, so without this tombstone `cf deploy` rejects it as an orphan.
+        PasswordHasher: { type: "durable-object", state: "deleted" },
       },
     },
   };
