@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { createContext, use, useEffect, useState } from "react";
 import { z } from "zod";
 
-const UserThemeSchema = z.enum(["light", "dark", "system"]).catch("system");
+const UserThemeSchema = z.enum(["light", "dark", "system"]).catch("dark");
 const _AppThemeSchema = z.enum(["light", "dark"]).catch("light");
 
 export type UserTheme = z.infer<typeof UserThemeSchema>;
@@ -14,7 +14,7 @@ export type AppTheme = z.infer<typeof _AppThemeSchema>;
 const themeStorageKey = "ui-theme";
 
 const getStoredUserTheme = createIsomorphicFn()
-  .server((): UserTheme => "system")
+  .server((): UserTheme => "dark")
   .client((): UserTheme => {
     const stored = localStorage.getItem(themeStorageKey);
     return UserThemeSchema.parse(stored);
@@ -26,7 +26,7 @@ const setStoredTheme = createClientOnlyFn((theme: UserTheme) => {
 });
 
 const getSystemTheme = createIsomorphicFn()
-  .server((): AppTheme => "light")
+  .server((): AppTheme => "dark")
   .client((): AppTheme => {
     return window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
@@ -60,10 +60,10 @@ const setupPreferredListener = createClientOnlyFn(
 const themeScript = (() => {
   function themeFn() {
     try {
-      const storedTheme = localStorage.getItem("ui-theme") || "system";
+      const storedTheme = localStorage.getItem("ui-theme") || "dark";
       const validTheme = ["light", "dark", "system"].includes(storedTheme)
         ? storedTheme
-        : "system";
+        : "dark";
 
       if (validTheme === "system") {
         const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
@@ -75,11 +75,7 @@ const themeScript = (() => {
         document.documentElement.classList.add(validTheme);
       }
     } catch {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light";
-      document.documentElement.classList.add(systemTheme, "system");
+      document.documentElement.classList.add("dark");
     }
   }
   return `(${themeFn.toString()})();`;
